@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Calculator RCA pentru asigurați cu risc ridicat - Formula BAAR oficială. Calcul automat sau manual al primei recomandate.">
-    <title>Calculator RCA - Prima Recomandată Risc Ridicat | BAAR</title>
+    <title>Midas - Calculator RCA - Prima Recomandată Risc Ridicat | BAAR</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -371,7 +371,9 @@
                         Biroul Asigurătorilor de Autovehicule din România (BAAR)
                     </a>
                 </p>
+                <p>© 2025 Midas Solutions. Toate drepturile rezervate.</p>
             </div>
+            <img src="https://i.pinimg.com/736x/47/8e/4e/478e4e95f4bf8d1452e92134e9f872fa.jpg" class="h-12 w-12 mx-auto" alt="midas logo">
         </div>
     </div>
 
@@ -411,6 +413,79 @@
         }
 
         // ========================================
+        // LOCAL CALCULATION FUNCTION
+        // ========================================
+        function calculatePremiumLocal(data) {
+            // Extract input values
+            const TR = parseFloat(data.TR || 0);
+            const PO1 = parseFloat(data.PO1 || 0);
+            const PO2 = parseFloat(data.PO2 || 0);
+            const PO3 = parseFloat(data.PO3 || 0);
+
+            // Validation
+            const errors = [];
+            if (TR <= 0) errors.push('TR (Tarif de Referință) trebuie să fie mai mare decât 0');
+            if (PO1 <= 0) errors.push('PO1 (Prima Ofertă 1) trebuie să fie mai mare decât 0');
+            if (PO2 <= 0) errors.push('PO2 (Prima Ofertă 2) trebuie să fie mai mare decât 0');
+            if (PO3 <= 0) errors.push('PO3 (Prima Ofertă 3) trebuie să fie mai mare decât 0');
+
+            if (errors.length > 0) {
+                return {
+                    success: false,
+                    errors: errors,
+                    message: 'Validare eșuată. Vă rugăm să verificați datele introduse.'
+                };
+            }
+
+            // Constants
+            const N = 1.36;
+            const FACTOR = 0.64; // 64%
+
+            // Step 1: Calculate average of 3 offers
+            const averagePO = (PO1 + PO2 + PO3) / 3;
+
+            // Step 2: Apply 64% to average
+            const poComponent = averagePO * FACTOR;
+
+            // Step 3: Multiply TR by N
+            const trComponent = TR * N;
+
+            // Step 4: Add components and divide by 2
+            const Pr = (trComponent + poComponent) / 2;
+
+            // Round to 2 decimal places
+            const PrRounded = Math.round(Pr * 100) / 100;
+
+            // Calculation details for transparency
+            const calculationDetails = {
+                step1_averagePO: Math.round(averagePO * 100) / 100,
+                step2_poComponent: Math.round(poComponent * 100) / 100,
+                step3_trComponent: Math.round(trComponent * 100) / 100,
+                step4_sum: Math.round((trComponent + poComponent) * 100) / 100,
+                step5_finalPr: PrRounded
+            };
+
+            return {
+                success: true,
+                inputs: {
+                    TR: TR,
+                    PO1: PO1,
+                    PO2: PO2,
+                    PO3: PO3,
+                    constantN: N
+                },
+                result: {
+                    primaRecomandata: PrRounded,
+                    currency: 'RON',
+                    valabilitate: '12 luni'
+                },
+                calculationDetails: calculationDetails,
+                formula: 'Pr = {TR × 1.36 + [(PO1 + PO2 + PO3) ÷ 3] × 64%} ÷ 2',
+                message: `Prima Recomandată calculată: ${PrRounded} RON pentru 12 luni`
+            };
+        }
+
+        // ========================================
         // MANUAL FORM HANDLER
         // ========================================
         const manualForm = document.getElementById('manualForm');
@@ -418,7 +493,7 @@
         const manualResult = document.getElementById('manual-result');
         const manualSubmitBtn = document.getElementById('manual-submit-btn');
 
-        manualForm.addEventListener('submit', async (e) => {
+        manualForm.addEventListener('submit', (e) => {
             e.preventDefault();
 
             const formData = {
@@ -428,46 +503,27 @@
                 PO3: parseFloat(document.getElementById('manual-PO3').value)
             };
 
-            // Validation
-            let hasErrors = false;
-            Object.keys(formData).forEach(key => {
-                if (isNaN(formData[key]) || formData[key] <= 0) {
-                    hasErrors = true;
-                }
-            });
-
-            if (hasErrors) {
-                showError(manualResult, 'Toate valorile trebuie să fie numere mai mari decât 0.');
-                return;
-            }
-
-            // Show loading
+            // Show loading (brief visual feedback)
             manualSubmitBtn.disabled = true;
             manualLoading.classList.remove('hidden');
             manualResult.classList.add('hidden');
 
-            try {
-                const response = await fetch(WEBHOOK_MANUAL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
+            // Simulate brief processing delay for UX (optional)
+            setTimeout(() => {
+                // Calculate locally (no n8n call needed)
+                const result = calculatePremiumLocal(formData);
 
-                const result = await response.json();
-
+                // Hide loading
                 manualLoading.classList.add('hidden');
                 manualSubmitBtn.disabled = false;
 
+                // Display result
                 if (result.success) {
                     showManualSuccess(result);
                 } else {
                     showError(manualResult, result.message || 'Eroare la calcul', result.errors);
                 }
-            } catch (error) {
-                manualLoading.classList.add('hidden');
-                manualSubmitBtn.disabled = false;
-                showError(manualResult, 'Eroare de conexiune. Verificați dacă n8n rulează.', [error.message]);
-            }
+            }, 300); // 300ms delay for smooth UX
         });
 
         function showManualSuccess(result) {
@@ -731,8 +787,6 @@
         // INIT
         // ========================================
         console.log('🚗 Calculator RCA - Risc Ridicat initialized');
-        console.log('Manual webhook:', WEBHOOK_MANUAL);
-        console.log('Auto webhook:', WEBHOOK_AUTO);
     </script>
 </body>
 </html>
